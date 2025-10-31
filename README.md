@@ -106,3 +106,8 @@ Kiểm tra các file này để xem ảnh MRZ có rõ nét không.
 }
 ```
 ````
+
+
+ python -m venv venv
+
+ venv\Scripts\activate
