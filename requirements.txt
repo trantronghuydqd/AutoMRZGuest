@@ -1,0 +1,19 @@
+# Core MRZ reading
+passporteye>=2.2.0
+
+# Image processing (cần cho enhance & rotate)
+opencv-python>=4.8.0
+pillow>=10.0.0
+numpy>=1.24.0
+
+# File watcher
+watchdog>=3.0.0
+
+# GUI - Drag & Drop
+tkinterdnd2>=0.3.0
+
+# Optional: Auto-fill Smile PMS
+pywinauto>=0.6.8
+
+# Optional: Copy to clipboard
+pyperclip>=1.8.2
