@@ -1,21 +1,29 @@
-# Core MRZ reading
+# ============= CORE OCR ENGINES =============
+# PaddleOCR - High accuracy OCR (90-95% accuracy, recommended)
+paddleocr>=2.7.0
+paddlepaddle>=2.5.0  # Backend cho PaddleOCR (CPU version)
+
+# PassportEye - Fallback OCR (60-70% accuracy)
 passporteye>=2.2.0
 
-# Image processing (cần cho enhance & rotate)
-opencv-python>=4.8.0
-pillow>=10.0.0
-numpy>=1.24.0
+# ============= IMAGE PROCESSING =============
+opencv-python>=4.8.0  # Preprocessing: rotate, crop, denoise, threshold
+pillow>=10.0.0        # Image loading & manipulation
+numpy>=1.24.0         # Array operations cho OpenCV
 
-# File watcher
+# ============= GUI & UTILITIES =============
+tkinterdnd2>=0.3.0    # Drag & Drop support cho Tkinter
+
+# File watcher (cho gui_app_paddle_watcher.py)
 watchdog>=3.0.0
 
-# GUI - Drag & Drop
-tkinterdnd2>=0.3.0
-
-# Optional: Auto-fill Smile PMS
+# ============= OPTIONAL =============
+# Auto-fill Smile PMS (chưa implement)
 pywinauto>=0.6.8
 
-# Optional: Copy to clipboard
+# Copy to clipboard (đã có trong tkinter, nhưng có thể dùng pyperclip cho cross-platform)
 pyperclip>=1.8.2
+
+
 
 

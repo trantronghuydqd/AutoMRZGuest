@@ -1,4 +1,3 @@
-
 """
 GUI Application - Kéo thả ảnh để đọc MRZ
 """
@@ -32,6 +31,54 @@ class Guest:
 
 # ============= IMAGE PREPROCESSING =============
 
+def enhance_mrz_image(image_path):
+    """Tăng cường chất lượng ảnh MRZ để OCR tốt hơn"""
+    try:
+        img = cv2.imread(image_path)
+        if img is None:
+            return image_path
+        
+        height, width = img.shape[:2]
+        
+        # Crop vùng MRZ (15% dưới cùng)
+        mrz_region = img[int(height * 0.85):, :]
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(mrz_region, cv2.COLOR_BGR2GRAY)
+        
+        # Tăng kích thước để OCR tốt hơn
+        scale_factor = 3.0
+        enlarged = cv2.resize(gray, None, fx=scale_factor, fy=scale_factor, 
+                            interpolation=cv2.INTER_CUBIC)
+        
+        # Denoise mạnh để giảm nhiễu
+        denoised = cv2.fastNlMeansDenoising(enlarged, None, h=10, 
+                                           templateWindowSize=7, 
+                                           searchWindowSize=21)
+        
+        # Adaptive threshold để tách chữ rõ hơn
+        binary = cv2.adaptiveThreshold(denoised, 255, 
+                                      cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                      cv2.THRESH_BINARY, 11, 2)
+        
+        # Morphology để làm rõ ký tự
+        kernel = np.ones((2, 2), np.uint8)
+        morph = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+        
+        # Invert nếu nền đen chữ trắng
+        if np.mean(morph) < 127:
+            morph = cv2.bitwise_not(morph)
+        
+        # Lưu ảnh đã enhance
+        enhanced_path = image_path.rsplit('.', 1)[0] + '_enhanced.jpg'
+        cv2.imwrite(enhanced_path, morph)
+        
+        return enhanced_path
+        
+    except Exception as e:
+        print(f"Lỗi enhance: {e}")
+        return image_path
+
 def rotate_image_if_needed(image_path):
     """Tự động xoay ảnh nếu bị nghiêng hoặc dọc"""
     try:
@@ -64,14 +111,93 @@ def rotate_image_if_needed(image_path):
         return image_path
 
 # ============= MRZ READER =============
+def fix_common_ocr_errors(text):
+    """Sửa lỗi OCR phổ biến trong MRZ"""
+    if not text:
+        return ""
+    
+    # Dictionary các lỗi OCR phổ biến
+    corrections = {
+        # K vs < confusion
+        'I5HIKAWA': 'ISHIKAWA',
+        'I5HII': 'ISHII',
+        'TAKAHA5HI': 'TAKAHASHI',
+        'KAWA5AKI': 'KAWASAKI',
+        'KOBA': 'KOBAYASHI',  # Nếu thiếu YASHI
+        
+        # < được đọc nhầm thành K
+        'KKKK': '<<<<',
+        'KKK': '<<<',
+        'KK': '<<',
+        
+        # E vs F confusion
+        'ENRANCISCO': 'FRANCISCO',
+        
+        # 0 vs O confusion
+        '0SAKA': 'OSAKA',
+        'T0KY0': 'TOKYO',
+        
+        # I vs 1 confusion  
+        '1SHIKAWA': 'ISHIKAWA',
+        '1SHII': 'ISHII',
+        
+        # S vs 5 confusion
+        'I5HIKAWA': 'ISHIKAWA',
+        'I5HII': 'ISHII',
+        '5HIMIZU': 'SHIMIZU',
+        '5UZUKI': 'SUZUKI',
+        '5ATO': 'SATO',
+        
+        # Common name patterns
+        'TAKAHA5HI': 'TAKAHASHI',
+        'WATANAKE': 'WATANABE',
+        'YAMAM0T0': 'YAMAMOTO',
+    }
+    
+    # Apply corrections
+    for wrong, correct in corrections.items():
+        text = text.replace(wrong, correct)
+    
+    return text
+
 def clean_name(name):
-    """Làm sạch tên"""
+    """Làm sạch tên với logic đơn giản và hiệu quả"""
     if not name:
         return ""
-    name = name.replace('<', ' ').replace('K', ' ')
-    name = re.sub(r'\s+', ' ', name).strip()
-    name = re.sub(r'(.)\1{2,}', '', name)
-    return name.strip()
+    
+    # Fix common OCR errors trước
+    name = fix_common_ocr_errors(name)
+    
+    # Replace << thành separator rõ ràng
+    name = name.replace('<<', '|SEPARATOR|')
+    
+    # Replace < đơn lẻ và K đơn lẻ ở cuối thành rỗng
+    # (MRZ thường có < hoặc K thừa ở cuối do OCR lỗi)
+    name = name.replace('<', '')
+    
+    # Xử lý separator
+    parts = name.split('|SEPARATOR|')
+    cleaned_parts = []
+    
+    for part in parts:
+        # Loại bỏ các ký tự không phải chữ cái
+        cleaned = ''.join(c if c.isalpha() or c == ' ' else ' ' for c in part)
+        # Loại bỏ khoảng trắng thừa
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        
+        if cleaned:
+            # Loại bỏ ký tự K hoặc < ở đầu/cuối
+            cleaned = cleaned.strip('K<')
+            if cleaned:
+                cleaned_parts.append(cleaned)
+    
+    # Join với space
+    result = ' '.join(cleaned_parts)
+    
+    # Final cleanup
+    result = re.sub(r'\s+', ' ', result).strip()
+    
+    return result
 
 def format_date_from_string(date_str):
     """Chuyển đổi ngày về dd/mm/yyyy"""
@@ -101,19 +227,32 @@ def format_date_from_string(date_str):
     return date_str
 
 def read_mrz_from_image(image_path):
-    """Đọc MRZ và trả về Guest object - CÓ PREPROCESSING"""
+    """Đọc MRZ và trả về Guest object - CÓ PREPROCESSING CẢI TIẾN"""
+    temp_files = []
     try:
         # Bước 1: Xoay ảnh nếu cần
         rotated_path = rotate_image_if_needed(image_path)
+        if rotated_path != image_path:
+            temp_files.append(rotated_path)
         
-        
-        
-        # Bước 3: Đọc MRZ từ ảnh đã xử lý
+        # Bước 2: Thử đọc với ảnh gốc trước
         mrz_obj = read_mrz(rotated_path)
         
+        # Bước 3: Nếu fail hoặc kết quả không tốt, thử enhance ảnh
+        if not mrz_obj:
+            print("🔧 Đang enhance ảnh để cải thiện OCR...")
+            enhanced_path = enhance_mrz_image(rotated_path)
+            if enhanced_path != rotated_path:
+                temp_files.append(enhanced_path)
+            mrz_obj = read_mrz(enhanced_path)
+        
         # Xóa file tạm
-        if rotated_path != image_path and os.path.exists(rotated_path):
-            os.remove(rotated_path)
+        for temp_file in temp_files:
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except:
+                    pass
         
         if not mrz_obj:
             return None

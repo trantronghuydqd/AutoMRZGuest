@@ -2,8 +2,7 @@
 *
 
 # Allow specific files
-!gui_app.py
-!smile_fill.py
+!*.py
 
 # Allow all markdown files
 !*.md
