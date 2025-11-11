@@ -68,7 +68,7 @@ def clean_name(name):
     """Làm sạch tên"""
     if not name:
         return ""
-    name = name.replace('<', ' ').replace('K', ' ')
+    name = name.replace('<', ' ')
     name = re.sub(r'\s+', ' ', name).strip()
     name = re.sub(r'(.)\1{2,}', '', name)
     return name.strip()
