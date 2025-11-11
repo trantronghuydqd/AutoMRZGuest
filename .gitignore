@@ -3,6 +3,7 @@
 
 # Allow specific files
 !*.py
+!*.json
 
 # Allow all markdown files
 !*.md
@@ -46,4 +47,4 @@ desktop.ini
 *.tmp
 debug_*.jpg
 *_rotated.jpg
-*_mrz.json
+
